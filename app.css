@@ -1,0 +1,116 @@
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+
+html,body{margin:0;min-height:100%;font-family:Inter,Segoe UI,Arial,sans-serif;background:#070914;color:#f4f5fb}
+body{min-height:100vh}
+button,input,textarea,select{font:inherit}
+button{cursor:pointer;border:0}
+
+.shell{width:100%;min-height:100vh;padding:48px 24px;display:flex;justify-content:center}
+.card{width:min(980px,100%);background:#101321;border:1px solid #252a3d;border-radius:24px;box-shadow:0 24px 80px rgba(0,0,0,.35);overflow:hidden}
+
+.brand{display:flex;align-items:center;gap:14px;padding:28px 34px;border-bottom:1px solid #252a3d;background:#111525}
+.logo{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;background:linear-gradient(135deg,#7657ff,#5a43e8);font-size:22px;font-weight:800;color:white;box-shadow:0 8px 24px rgba(103,79,255,.3)}
+.brand h1{margin:0;font-size:20px;font-weight:750;letter-spacing:-.3px}
+.brand p{margin:3px 0 0;color:#7f88a3;font-size:13px}
+
+#authView,#appView{padding:34px}
+h2{margin:0 0 8px;font-size:30px;letter-spacing:-.8px}
+.muted{color:#858da7;line-height:1.55}
+.error{min-height:20px;color:#ff6f86;font-size:13px}
+
+.topline{display:flex;justify-content:space-between;align-items:center;margin-bottom:38px}
+.label{display:block;color:#717b99;font-size:12px;font-weight:800;letter-spacing:1.7px;text-transform:uppercase;margin-bottom:10px}
+.status{font-size:14px;font-weight:600}
+.status.online{color:#4ee59b}
+.status.offline{color:#7d86a0}
+
+.hero{margin-bottom:34px}
+.hero h2{font-size:34px;margin-bottom:8px}
+
+.section{padding:26px 0;border-top:1px solid #252a3d}
+.section:first-of-type{border-top:0}
+.section>.label{margin-bottom:18px}
+.sectionTitle{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.sectionTitle .label{margin:0}
+
+label{display:block;color:#d8dbea;font-size:14px;font-weight:600;margin:16px 0 8px}
+
+input[type="text"],input[type="email"],input[type="password"],input[type="date"],input[type="time"],input[type="number"],textarea,select{width:100%;background:#0b0f1c;border:1px solid #2b3147;color:#f5f6fb;border-radius:12px;padding:13px 14px;outline:none;transition:border-color .15s,box-shadow .15s}
+input[type="text"]:focus,input[type="email"]:focus,input[type="password"]:focus,input[type="date"]:focus,input[type="time"]:focus,input[type="number"]:focus,textarea:focus,select:focus{border-color:#735cff;box-shadow:0 0 0 3px rgba(115,92,255,.12)}
+textarea{min-height:90px;resize:vertical}
+select{appearance:auto}
+
+.primary{width:100%;padding:14px 18px;border-radius:12px;background:#6c55f6;color:white;font-weight:750;transition:.15s}
+.primary:hover{background:#7b66ff;transform:translateY(-1px)}
+.primary:disabled{opacity:.55;cursor:not-allowed;transform:none}
+
+.ghost{padding:11px 15px;border-radius:11px;background:#1a2033;color:#bfc5d9;font-weight:650}
+.ghost:hover{background:#222940;color:white}
+.ghost.small{padding:8px 12px;font-size:12px}
+
+.danger{width:100%;padding:14px 18px;border-radius:12px;background:#3a1720;color:#ff8798;font-weight:750;border:1px solid #602532}
+.danger:hover{background:#471a25}
+.big{padding:16px 20px;font-size:15px}
+
+.choiceGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.choice{padding:14px;border-radius:12px;background:#171c2d;color:#aeb6cc;border:1px solid #282f45;font-weight:700}
+.choice:hover{background:#1d2337;color:white}
+.choice.active{background:#6c55f6;border-color:#6c55f6;color:white}
+
+.durations{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.duration{padding:15px 10px;border-radius:13px;background:#171c2d;color:#9fa8c0;border:1px solid #292f45;font-weight:700}
+.duration:hover{background:#1d2337;color:white}
+.duration.active{background:#6c55f6;border-color:#6c55f6;color:white;box-shadow:0 8px 20px rgba(108,85,246,.2)}
+
+.inlineGrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.inlineGrid label{margin-top:0}
+
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-top:14px}
+.days label{margin:0;padding:11px 6px;text-align:center;border:1px solid #292f45;border-radius:10px;background:#151a2a;color:#9fa8c0;font-size:12px}
+.days label:has(input:checked){background:#28204f;border-color:#765cff;color:#dcd8ff}
+.days input{margin-right:4px;accent-color:#6c55f6}
+
+.checkRow{margin-top:18px}
+.checkRow label{display:flex;align-items:center;gap:10px;margin:0}
+
+input[type="checkbox"]{appearance:none;width:18px;height:18px;min-width:18px;margin:0;border:1px solid #3b435c;border-radius:5px;background:#0b0f1c;cursor:pointer;position:relative}
+input[type="checkbox"]:checked{background:#6c55f6;border-color:#6c55f6}
+input[type="checkbox"]:checked::after{content:"";position:absolute;left:5px;top:1px;width:5px;height:10px;border:solid white;border-width:0 2px 2px 0;transform:rotate(45deg)}
+
+.setting{display:flex;align-items:center;justify-content:space-between;gap:30px;padding:15px 0;border-bottom:1px solid #1f2537}
+.setting:last-child{border-bottom:0}
+.setting>div{min-width:0}
+.setting strong{display:block;color:#e8eaf2;font-size:15px;font-weight:700}
+.setting p{margin:5px 0 0;color:#7f88a3;font-size:13px;line-height:1.45}
+
+.applicationList{display:flex;flex-direction:column;border:1px solid #292f45;border-radius:13px;overflow:hidden;background:#0c101d}
+.appItem{display:flex;align-items:center;justify-content:space-between;padding:15px 16px;border-bottom:1px solid #22283a}
+.appItem:last-child{border-bottom:0}
+.appItem span:first-child{color:#e1e4ed;font-size:14px}
+.appAllowed{color:#54dfa0!important;font-size:11px!important;font-weight:800;letter-spacing:.8px}
+
+.startBar{padding-top:28px}
+.footer{margin-top:30px;padding-top:20px;border-top:1px solid #252a3d;color:#69728d;font-size:12px}
+
+#activeView{text-align:center;padding:30px 0}
+#activeView h2{margin-top:8px}
+#timer{font-size:64px;font-weight:800;letter-spacing:-2px;margin:38px 0 8px;color:white;font-variant-numeric:tabular-nums}
+#activeView .danger{margin-top:32px}
+
+@media(max-width:700px){
+.shell{padding:20px 10px}
+.card{border-radius:18px}
+#authView,#appView{padding:24px 20px}
+.brand{padding:22px 20px}
+.hero h2{font-size:28px}
+.durations{grid-template-columns:repeat(2,1fr)}
+.days{grid-template-columns:repeat(4,1fr)}
+.inlineGrid{grid-template-columns:1fr}
+.topline{align-items:flex-start}
+#timer{font-size:42px}
+}
+
+@media(min-width:701px){
+#idleView{max-width:900px;margin:auto}
+}

@@ -1,0 +1,10 @@
+{
+  "name": "FocusClient",
+  "short_name": "FocusClient",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#070914",
+  "theme_color": "#070914",
+  "description": "FocusClient primary control panel"
+}

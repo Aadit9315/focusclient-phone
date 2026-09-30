@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+			<meta name="viewport" content="width=device-width,initial-scale=1">
+				<title>FocusClient</title>
+				<link rel="stylesheet" href="app.css">
+					<link rel="manifest" href="manifest.json">
+						<meta name="theme-color" content="#070914">
+							<meta name="mobile-web-app-capable" content="yes">
+								<meta name="apple-mobile-web-app-capable" content="yes">
+									<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+	</head>
+	<body>
+
+		<main class="shell">
+
+			<section class="card">
+
+				<div class="brand">
+					<span class="logo">F</span>
+					<div>
+						<h1>FocusClient</h1>
+						<p>Control your focus.</p>
+					</div>
+				</div>
+
+				<div id="authView">
+
+					<h2>Welcome back</h2>
+					<p class="muted">Sign in to manage your FocusClient blocks.</p>
+
+					<input id="email" type="email" placeholder="Email">
+						<input id="password" type="password" placeholder="Password">
+
+							<button id="signIn" class="primary">Sign in</button>
+
+							<p id="authError" class="error"></p>
+
+						</div>
+
+				<div id="appView" hidden="">
+
+					<div class="topline">
+
+						<div>
+							<span class="label">STATUS</span>
+							<div id="status" class="status offline">Not signed in</div>
+						</div>
+
+						<button id="signOut" class="ghost">Sign out</button>
+
+					</div>
+
+					<div id="idleView">
+
+						<div class="hero">
+							<span class="label">FOCUS CONTROL CENTER</span>
+							<h2>Create a focus block</h2>
+							<p class="muted">Configure exactly how this session should behave.</p>
+						</div>
+
+						<div class="section">
+
+							<span class="label">BASIC</span>
+
+							<label>Block name</label>
+							<input id="blockName" value="Focus Session" maxlength="80">
+
+								<label>Description</label>
+								<textarea id="blockDescription" placeholder="What are you focusing on?"></textarea>
+
+							</div>
+
+						<div class="section">
+
+							<span class="label">START</span>
+
+							<div class="choiceGrid">
+
+								<button class="choice active" data-start="now">Start now</button>
+								<button class="choice" data-start="scheduled">Schedule</button>
+
+							</div>
+
+							<div id="scheduleControls" hidden="">
+
+								<label>Start date</label>
+								<input id="startDate" type="date">
+
+									<label>Start time</label>
+									<input id="startTime" type="time">
+
+							</div>
+
+						</div>
+
+						<div class="section">
+
+							<span class="label">DURATION</span>
+
+							<div class="durations">
+
+								<button class="duration" data-minutes="15">15m</button>
+								<button class="duration" data-minutes="25">25m</button>
+								<button class="duration" data-minutes="45">45m</button>
+								<button class="duration active" data-minutes="60">1h</button>
+								<button class="duration" data-minutes="90">1.5h</button>
+								<button class="duration" data-minutes="120">2h</button>
+								<button class="duration" data-minutes="180">3h</button>
+								<button class="duration" data-minutes="240">4h</button>
+								<button class="duration" data-minutes="custom">Custom</button>
+
+							</div>
+
+							<div id="customDuration" class="inlineGrid" hidden="">
+
+								<div>
+									<label>Hours</label>
+									<input id="durationHours" type="number" min="0" value="1">
+								</div>
+
+								<div>
+									<label>Minutes</label>
+									<input id="durationMinutes" type="number" min="0" max="59" value="0">
+								</div>
+
+							</div>
+
+						</div>
+
+						<div class="section">
+
+							<span class="label">SCHEDULE</span>
+
+							<select id="scheduleType">
+
+								<option value="once">One time</option>
+								<option value="daily">Every day</option>
+								<option value="weekdays">Weekdays</option>
+								<option value="weekends">Weekends</option>
+								<option value="custom">Custom days</option>
+
+							</select>
+
+							<div id="customDays" class="days" hidden="">
+
+								<label>
+									<input type="checkbox" value="1"> Mon
+								</label>
+								<label>
+									<input type="checkbox" value="2"> Tue
+								</label>
+								<label>
+									<input type="checkbox" value="3"> Wed
+								</label>
+								<label>
+									<input type="checkbox" value="4"> Thu
+								</label>
+								<label>
+									<input type="checkbox" value="5"> Fri
+								</label>
+								<label>
+									<input type="checkbox" value="6"> Sat
+								</label>
+								<label>
+									<input type="checkbox" value="0"> Sun
+								</label>
+
+							</div>
+
+							<div class="checkRow">
+								<label>
+									<input id="repeatIndefinitely" type="checkbox"> Repeat indefinitely
+								</label>
+							</div>
+
+							<div id="repeatUntilContainer">
+								<label>Repeat until</label>
+								<input id="repeatUntil" type="date">
+							</div>
+
+						</div>
+
+						<div class="section">
+
+							<div class="sectionTitle">
+
+								<span class="label">ALLOWED APPLICATIONS</span>
+
+								<button id="refreshApps" class="ghost small">Refresh</button>
+
+							</div>
+
+							<p class="muted">
+								These applications remain available during focus.
+							</p>
+
+							<div id="applicationList" class="applicationList"></div>
+
+						</div>
+
+						<div class="section">
+
+							<span class="label">ENFORCEMENT</span>
+
+							<div class="setting">
+								<div>
+									<strong>Block applications</strong>
+									<p>Terminate blocked applications while the block is active.</p>
+								</div>
+								<input id="blockApplications" type="checkbox" checked="">
+							</div>
+
+							<div class="setting">
+								<div>
+									<strong>Block unknown applications</strong>
+									<p>Unknown processes remain untouched when disabled.</p>
+								</div>
+								<input id="blockUnknown" type="checkbox">
+							</div>
+
+							<div class="setting">
+								<div>
+									<strong>Enforce on startup</strong>
+									<p>Continue enforcement after FocusClient starts.</p>
+								</div>
+								<input id="enforceStartup" type="checkbox" checked="">
+							</div>
+
+							<div class="setting">
+								<div>
+									<strong>Enforce offline</strong>
+									<p>Continue using the cached block without internet.</p>
+								</div>
+								<input id="enforceOffline" type="checkbox" checked="">
+							</div>
+
+							<div class="setting">
+								<div>
+									<strong>Enforce after sleep</strong>
+									<p>Restore enforcement after waking.</p>
+								</div>
+								<input id="enforceSleep" type="checkbox" checked="">
+							</div>
+
+							<label>Enforcement interval</label>
+
+							<select id="enforcementInterval">
+								<option value="1">1 second</option>
+								<option value="2" selected="">2 seconds</option>
+								<option value="3">3 seconds</option>
+								<option value="5">5 seconds</option>
+								<option value="10">10 seconds</option>
+							</select>
+
+						</div>
+
+						<div class="section">
+
+							<span class="label">EMERGENCY BREAKS</span>
+
+							<div class="setting">
+								<div>
+									<strong>Allow emergency breaks</strong>
+									<p>Allow temporary breaks during this block.</p>
+								</div>
+								<input id="allowEmergencies" type="checkbox">
+							</div>
+
+							<div class="inlineGrid">
+
+								<div>
+									<label>Maximum breaks</label>
+									<input id="maxEmergencies" type="number" min="0" value="0">
+								</div>
+
+								<div>
+									<label>Break duration</label>
+									<select id="emergencyDuration">
+										<option value="60">1 minute</option>
+										<option value="300" selected="">5 minutes</option>
+										<option value="600">10 minutes</option>
+										<option value="900">15 minutes</option>
+										<option value="1800">30 minutes</option>
+									</select>
+								</div>
+
+							</div>
+
+							<label>Cooldown</label>
+
+							<select id="emergencyCooldown">
+								<option value="0">No cooldown</option>
+								<option value="900">15 minutes</option>
+								<option value="1800">30 minutes</option>
+								<option value="3600">1 hour</option>
+							</select>
+
+						</div>
+
+						<div class="section">
+
+							<span class="label">STOPPING</span>
+
+							<div class="setting">
+								<div>
+									<strong>Allow Stop Focus</strong>
+									<p>Allow the active block to be stopped manually.</p>
+								</div>
+								<input id="allowStop" type="checkbox" checked="">
+							</div>
+
+							<div class="setting">
+								<div>
+									<strong>Require confirmation</strong>
+									<p>Show an additional confirmation before stopping.</p>
+								</div>
+								<input id="stopConfirmation" type="checkbox" checked="">
+							</div>
+
+							<label>Confirmation countdown</label>
+
+							<select id="stopCountdown">
+								<option value="0">None</option>
+								<option value="3">3 seconds</option>
+								<option value="5" selected="">5 seconds</option>
+								<option value="10">10 seconds</option>
+							</select>
+
+						</div>
+
+						<div class="section">
+
+							<span class="label">EXTENDING</span>
+
+							<div class="setting">
+								<div>
+									<strong>Allow extension</strong>
+									<p>Allow the active block to be extended.</p>
+								</div>
+								<input id="allowExtend" type="checkbox">
+							</div>
+
+							<div class="inlineGrid">
+
+								<div>
+									<label>Maximum extension</label>
+									<select id="maxExtension">
+										<option value="900">15 minutes</option>
+										<option value="1800" selected="">30 minutes</option>
+										<option value="3600">1 hour</option>
+										<option value="7200">2 hours</option>
+									</select>
+								</div>
+
+								<div>
+									<label>Maximum extensions</label>
+									<input id="maxExtensions" type="number" min="0" value="1">
+								</div>
+
+							</div>
+
+						</div>
+
+						<div class="section">
+
+							<span class="label">LOCK SETTINGS</span>
+
+							<div class="setting">
+								<div>
+									<strong>Allow configuration changes</strong>
+									<p>Allow settings to be changed during the block.</p>
+								</div>
+								<input id="allowConfiguration" type="checkbox">
+							</div>
+
+							<div class="setting">
+								<div>
+									<strong>Allow new applications</strong>
+									<p>Allow additional applications during the block.</p>
+								</div>
+								<input id="allowNewApps" type="checkbox">
+							</div>
+
+						</div>
+
+						<div class="section">
+
+							<span class="label">NOTIFICATIONS</span>
+
+							<div class="setting">
+								<div>
+									<strong>Notify before start</strong>
+								</div>
+								<input id="notifyBeforeStart" type="checkbox">
+							</div>
+
+							<div class="inlineGrid">
+
+								<div>
+									<label>Before start</label>
+									<select id="notifyStartSeconds">
+										<option value="300">5 minutes</option>
+										<option value="600" selected="">10 minutes</option>
+										<option value="900">15 minutes</option>
+										<option value="1800">30 minutes</option>
+									</select>
+								</div>
+
+							</div>
+
+							<div class="setting">
+								<div>
+									<strong>Notify when block starts</strong>
+								</div>
+								<input id="notifyStart" type="checkbox" checked="">
+							</div>
+
+							<div class="setting">
+								<div>
+									<strong>Notify before ending</strong>
+								</div>
+								<input id="notifyBeforeEnd" type="checkbox">
+							</div>
+
+							<div class="inlineGrid">
+
+								<div>
+									<label>Before end</label>
+									<select id="notifyEndSeconds">
+										<option value="300">5 minutes</option>
+										<option value="600" selected="">10 minutes</option>
+										<option value="900">15 minutes</option>
+										<option value="1800">30 minutes</option>
+									</select>
+								</div>
+
+							</div>
+
+							<div class="setting">
+								<div>
+									<strong>Notify when block ends</strong>
+								</div>
+								<input id="notifyEnd" type="checkbox" checked="">
+							</div>
+
+						</div>
+
+						<div class="section">
+
+							<span class="label">TIMER</span>
+
+							<select id="timerDisplay">
+
+								<option value="remaining">Time remaining</option>
+								<option value="elapsed">Time elapsed</option>
+								<option value="both">Both</option>
+
+							</select>
+
+							<div class="setting">
+
+								<div>
+									<strong>Show seconds</strong>
+									<p>Display seconds on the timer.</p>
+								</div>
+
+								<input id="showSeconds" type="checkbox" checked="">
+
+							</div>
+
+						</div>
+
+						<div class="startBar">
+
+							<button id="startFocus" class="primary big">
+								Start Focus
+							</button>
+
+						</div>
+
+					</div>
+
+					<div id="activeView" hidden="">
+
+						<span class="label">FOCUS ACTIVE</span>
+
+						<h2 id="activeName">Focus Session</h2>
+
+						<div id="timer">00:00:00</div>
+
+						<div id="endsAt" class="muted"></div>
+
+						<button id="stopFocus" class="danger big">
+							Stop Focus
+						</button>
+
+					</div>
+
+					<div class="footer">
+						<span id="syncText">Waiting for Supabase…</span>
+					</div>
+
+				</div>
+
+			</section>
+
+		</main>
+
+		<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+		<script src="app.js"></script>
+
+		<script>
+			if ("serviceWorker" in navigator) {
+			window.addEventListener("load", () => {
+			navigator.serviceWorker.register("./service-worker.js")
+			.catch(error => console.error("FocusClient service worker registration failed:", error));
+			});
+			}
+		</script>
+
+	</body>
+</html>

@@ -20,6 +20,69 @@ let currentBlock=null;
 
 const $=id=>document.getElementById(id);
 
+const DEVICE_ID_KEY="focusclient_device_id";
+
+function getDeviceId(){
+    let id=localStorage.getItem(DEVICE_ID_KEY);
+
+    if(!id){
+        id=crypto.randomUUID();
+        localStorage.setItem(DEVICE_ID_KEY,id);
+    }
+
+    return id;
+}
+
+function getDeviceName(){
+    const userAgent=navigator.userAgent;
+
+    if(userAgent.includes("iPhone"))
+        return "iPhone";
+
+    if(userAgent.includes("iPad"))
+        return "iPad";
+
+    if(userAgent.includes("Android"))
+        return "Android Phone";
+
+    return "FocusClient Phone";
+}
+
+function getDevicePlatform(){
+    const userAgent=navigator.userAgent;
+
+    if(userAgent.includes("iPhone")||userAgent.includes("iPad"))
+        return "ios";
+
+    if(userAgent.includes("Android"))
+        return "android";
+
+    return "web";
+}
+
+async function registerPrimaryDevice(){
+    const deviceId=getDeviceId();
+    const deviceName=getDeviceName();
+    const platform=getDevicePlatform();
+
+    const {
+        data,
+        error
+    }=await db.rpc(
+        "register_primary_device",
+        {
+            p_device_id:deviceId,
+            p_device_name:deviceName,
+            p_platform:platform
+        }
+    );
+
+    if(error)
+        throw error;
+
+    return data;
+}
+
 const ALLOWED_APPLICATIONS=[
     {
         applicationKey:"",
@@ -588,6 +651,8 @@ async function login(){
             throw new Error(
                 "Supabase did not return a session."
             );
+
+        await registerPrimaryDevice();
 
         sendNative({
             type:"authenticated",

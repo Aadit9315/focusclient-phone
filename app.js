@@ -66,6 +66,17 @@ async function registerPrimaryDevice(){
     const platform=getDevicePlatform();
 
     const {
+        data:sessionData,
+        error:sessionError
+    }=await db.auth.getSession();
+
+    if(sessionError)
+        throw new Error(`Session check failed: ${sessionError.message}`);
+
+    if(!sessionData.session)
+        throw new Error("No active Supabase session on this device.");
+
+    const {
         data,
         error
     }=await db.rpc(
@@ -78,7 +89,10 @@ async function registerPrimaryDevice(){
     );
 
     if(error)
-        throw error;
+        throw new Error(`Primary device registration failed: ${error.message}`);
+
+    if(!data)
+        throw new Error("Primary device registration returned no device.");
 
     return data;
 }

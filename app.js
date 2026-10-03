@@ -27,12 +27,13 @@ let primaryRealtimeChannel = null;
 let emergencyCooldownUntil = 0;
 let lastNotificationState = {};
 let renderLock = false;
+let lastRenderedSecond = null;
 
 const DEVICE_ID_KEY =
     "focusclient_device_id";
 
 const APP_VERSION =
-    "2026.10.02-phone.2";
+    "2026.10.03-phone.3";
 
 const $ =
     id =>
@@ -188,11 +189,6 @@ async function registerPrimaryDevice(){
 }
 
 function sendNative(message){
-    /*
-     * The phone normally has no WebView2 bridge.
-     * This remains here only so the same UI code does
-     * not break if it is ever opened inside WebView2.
-     */
     if(
         window.chrome &&
         window.chrome.webview
@@ -376,28 +372,28 @@ function normalizeBlock(
     };
 }
 
-/*
- * The Windows engine treats:
- *
- * starts_at + SAFETY_WINDOW_SECONDS
- *
- * as the actual enforcement/focus start.
- *
- * Therefore the phone stores:
- *
- * scheduled focus:
- *     starts_at = scheduledFocusStart - 2 minutes
- *
- * start now:
- *     starts_at = now
- *
- * ends_at is ALWAYS:
- *
- *     actualFocusStart + requestedDuration
- *
- * This means the requested duration is never consumed
- * by the safety window.
- */
+function getSafetyWindowSeconds(
+    block = currentBlock
+){
+    const configured =
+        Number(
+            block?.extensions?.safetyWindowSeconds ??
+            block?.extensions?.SafetyWindowSeconds ??
+            SAFETY_WINDOW_SECONDS
+        );
+
+    if(
+        !Number.isFinite(
+            configured
+        ) ||
+        configured < 0
+    ){
+        return SAFETY_WINDOW_SECONDS;
+    }
+
+    return configured;
+}
+
 function getActualFocusStart(
     block = currentBlock
 ){
@@ -429,7 +425,8 @@ function getActualFocusStart(
         new Date(
             block.starts_at
         ).getTime() +
-        SAFETY_WINDOW_SECONDS * 1000
+        getSafetyWindowSeconds(block) *
+        1000
     );
 }
 
@@ -455,15 +452,20 @@ function getEnd(
     ).getTime();
 }
 
-function isInsideBlockWindow(
-    block,
+function getBlockPhase(
+    block = currentBlock,
     now = Date.now()
 ){
     if(!block)
-        return false;
+        return "none";
 
-    const start =
+    const warningStart =
         getWarningStart(
+            block
+        );
+
+    const focusStart =
+        getActualFocusStart(
             block
         );
 
@@ -473,15 +475,47 @@ function isInsideBlockWindow(
         );
 
     if(
-        !Number.isFinite(start) ||
-        !Number.isFinite(end)
+        !Number.isFinite(
+            warningStart
+        ) ||
+        !Number.isFinite(
+            focusStart
+        ) ||
+        !Number.isFinite(
+            end
+        )
     ){
-        return false;
+        return "invalid";
     }
 
+    if(now < warningStart){
+        return "scheduled";
+    }
+
+    if(now < focusStart){
+        return "safety";
+    }
+
+    if(now < end){
+        return "focus";
+    }
+
+    return "ended";
+}
+
+function isInsideBlockWindow(
+    block,
+    now = Date.now()
+){
+    const phase =
+        getBlockPhase(
+            block,
+            now
+        );
+
     return (
-        now >= start &&
-        now < end
+        phase === "safety" ||
+        phase === "focus"
     );
 }
 
@@ -489,20 +523,11 @@ function isInSafetyWindow(
     block,
     now = Date.now()
 ){
-    if(
-        !isInsideBlockWindow(
+    return (
+        getBlockPhase(
             block,
             now
-        )
-    ){
-        return false;
-    }
-
-    return (
-        now <
-        getActualFocusStart(
-            block
-        )
+        ) === "safety"
     );
 }
 
@@ -510,20 +535,11 @@ function isFocusActive(
     block,
     now = Date.now()
 ){
-    if(
-        !isInsideBlockWindow(
+    return (
+        getBlockPhase(
             block,
             now
-        )
-    ){
-        return false;
-    }
-
-    return (
-        now >=
-        getActualFocusStart(
-            block
-        )
+        ) === "focus"
     );
 }
 
@@ -574,8 +590,32 @@ function setButtonVisibility(
 function renderActiveControls(
     block
 ){
+    if(!block){
+        setButtonVisibility(
+            "stopFocus",
+            false
+        );
+
+        setButtonVisibility(
+            "extendFocus",
+            false
+        );
+
+        setButtonVisibility(
+            "emergencyBreak",
+            false
+        );
+
+        setButtonVisibility(
+            "cancelWarning",
+            false
+        );
+
+        return;
+    }
+
     const settings =
-        block?.settings ??
+        block.settings ??
         {};
 
     const allowStop =
@@ -591,25 +631,53 @@ function renderActiveControls(
         settings.allowEmergencies === true ||
         settings.AllowEmergencies === true;
 
+    const phase =
+        getBlockPhase(
+            block
+        );
+
     const stopButton =
         $("stopFocus");
 
+    const cancelWarningButton =
+        $("cancelWarning");
+
+    /*
+     * During the safety window the normal Stop Focus
+     * button is replaced by Cancel Focus.
+     *
+     * Both perform the same authoritative database
+     * cancellation, but the separate button makes the
+     * phase explicit to the user.
+     */
     if(stopButton){
         stopButton.hidden =
-            !allowStop;
+            !allowStop ||
+            phase !== "focus";
 
         stopButton.disabled =
             false;
     }
 
+    if(cancelWarningButton){
+        cancelWarningButton.hidden =
+            !allowStop ||
+            phase !== "safety";
+
+        cancelWarningButton.disabled =
+            false;
+    }
+
     setButtonVisibility(
         "extendFocus",
-        allowExtend
+        allowExtend &&
+        phase === "focus"
     );
 
     setButtonVisibility(
         "emergencyBreak",
-        allowEmergency
+        allowEmergency &&
+        phase === "focus"
     );
 }
 
@@ -633,55 +701,68 @@ function renderBlock(){
             idle.hidden = false;
             active.hidden = true;
 
+            renderActiveControls(
+                null
+            );
+
             return;
         }
 
         const now =
             Date.now();
 
-        const warningStart =
-            getWarningStart(
-                currentBlock
-            );
-
-        const focusStart =
-            getActualFocusStart(
-                currentBlock
-            );
-
-        const end =
-            getEnd(
-                currentBlock
+        const phase =
+            getBlockPhase(
+                currentBlock,
+                now
             );
 
         if(
-            !Number.isFinite(
-                warningStart
-            ) ||
-            !Number.isFinite(
-                focusStart
-            ) ||
-            !Number.isFinite(
-                end
-            )
+            phase === "ended" ||
+            phase === "invalid"
         ){
             currentBlock = null;
 
             idle.hidden = false;
             active.hidden = true;
 
-            return;
-        }
-
-        if(now >= end){
-            currentBlock = null;
-
-            idle.hidden = false;
-            active.hidden = true;
+            renderActiveControls(
+                null
+            );
 
             if($("syncText")){
                 $("syncText").textContent =
                     "Focus block ended.";
+            }
+
+            return;
+        }
+
+        /*
+         * A scheduled block exists in the database before
+         * its warning phase begins. It should not be shown
+         * as an active timer yet.
+         */
+        if(phase === "scheduled"){
+            idle.hidden = false;
+            active.hidden = true;
+
+            renderActiveControls(
+                null
+            );
+
+            if($("syncText")){
+                const focusStart =
+                    getActualFocusStart(
+                        currentBlock
+                    );
+
+                $("syncText").textContent =
+                    `Focus scheduled for ${
+                        new Date(
+                            focusStart
+                        ).toLocaleString()
+                    }.`;
             }
 
             return;
@@ -695,13 +776,38 @@ function renderBlock(){
                 currentBlock.name;
         }
 
+        const focusStart =
+            getActualFocusStart(
+                currentBlock
+            );
+
+        const end =
+            getEnd(
+                currentBlock
+            );
+
         const safety =
-            now < focusStart;
+            phase === "safety";
 
         if(safety){
             const remainingSafety =
-                focusStart - now;
+                Math.max(
+                    0,
+                    focusStart - now
+                );
 
+            const remainingSecond =
+                Math.ceil(
+                    remainingSafety / 1000
+                );
+
+            /*
+             * The displayed warning timer is calculated
+             * from the absolute timestamp every render.
+             *
+             * It therefore cannot accumulate interval
+             * drift.
+             */
             if($("timer")){
                 $("timer").textContent =
                     formatShortRemaining(
@@ -711,7 +817,7 @@ function renderBlock(){
 
             if($("activeLabel")){
                 $("activeLabel").textContent =
-                    "FOCUS STARTING";
+                    "SAFETY WINDOW";
             }
 
             if($("endsAt")){
@@ -741,11 +847,19 @@ function renderBlock(){
                         new Date(
                             focusStart
                         ).toLocaleTimeString()
-                    }. Safety window: ${
+                    }. You have ${
                         formatShortRemaining(
                             remainingSafety
                         )
-                    } remaining.`;
+                    } to cancel.`;
+            }
+
+            if(
+                remainingSecond !==
+                lastRenderedSecond
+            ){
+                lastRenderedSecond =
+                    remainingSecond;
             }
         }
         else{
@@ -902,6 +1016,10 @@ async function loadCurrentBlock(){
                 normalizeBlock
             );
 
+    /*
+     * An upcoming scheduled block is also retained so
+     * the phone can display the scheduled state.
+     */
     currentBlock =
         blocks.find(
             block =>
@@ -910,6 +1028,13 @@ async function loadCurrentBlock(){
                     now
                 )
         ) ||
+        blocks.find(
+            block =>
+                getBlockPhase(
+                    block,
+                    now
+                ) === "scheduled"
+        ) ||
         null;
 
     renderBlock();
@@ -917,10 +1042,29 @@ async function loadCurrentBlock(){
     renderAllowedApplications();
 
     if($("syncText")){
-        $("syncText").textContent =
-            currentBlock
-                ? "Active Focus Block synced."
-                : "Ready. No active Focus Block.";
+        if(!currentBlock){
+            $("syncText").textContent =
+                "Ready. No active Focus Block.";
+        }
+        else{
+            const phase =
+                getBlockPhase(
+                    currentBlock
+                );
+
+            if(phase === "safety"){
+                $("syncText").textContent =
+                    "Safety window active.";
+            }
+            else if(phase === "focus"){
+                $("syncText").textContent =
+                    "Active Focus Block synced.";
+            }
+            else if(phase === "scheduled"){
+                $("syncText").textContent =
+                    "Focus Block scheduled.";
+            }
+        }
     }
 
     return currentBlock;
@@ -1191,7 +1335,7 @@ function buildSettings(){
             ) || 0,
 
         NotifyOnEnd:
-            $("notifyEnd")?.checked ||
+            $("notifyOnEnd")?.checked ||
             false,
 
         TimerDisplay:
@@ -1236,15 +1380,6 @@ async function startFocus(){
     let warningStart;
     let actualFocusStart;
 
-    /*
-     * START NOW
-     *
-     * Press at 12:35
-     *
-     * warningStart       = 12:35
-     * actualFocusStart   = 12:37
-     * 5-minute end       = 12:42
-     */
     if(!scheduledStart){
         warningStart =
             new Date(
@@ -1257,16 +1392,6 @@ async function startFocus(){
                 SAFETY_WINDOW_SECONDS * 1000
             );
     }
-
-    /*
-     * SCHEDULED
-     *
-     * User chooses 12:35
-     *
-     * warningStart       = 12:33
-     * actualFocusStart   = 12:35
-     * 5-minute end       = 12:40
-     */
     else{
         actualFocusStart =
             new Date(
@@ -1280,12 +1405,6 @@ async function startFocus(){
             );
     }
 
-    /*
-     * CRITICAL:
-     *
-     * The end time is calculated from the ACTUAL
-     * focus start, not the warning start.
-     */
     const end =
         new Date(
             actualFocusStart.getTime() +
@@ -1322,20 +1441,9 @@ async function startFocus(){
         version:
             1,
 
-        /*
-         * starts_at is the beginning of the
-         * two-minute safety window.
-         *
-         * The Windows engine then waits 120 seconds
-         * before actual enforcement.
-         */
         starts_at:
             warningStart.toISOString(),
 
-        /*
-         * ends_at is ACTUAL FOCUS START + requested
-         * duration.
-         */
         ends_at:
             end.toISOString(),
 
@@ -1366,9 +1474,6 @@ async function startFocus(){
         }
     };
 
-    /*
-     * Do not allow creation of another active block.
-     */
     const existing =
         await loadCurrentBlock();
 
@@ -1479,9 +1584,112 @@ async function updateBlock(
     return currentBlock;
 }
 
+/*
+ * Authoritative cancellation.
+ *
+ * This is deliberately separate from stopFocus() because
+ * the safety-window button must cancel the DATABASE BLOCK,
+ * not merely hide the warning UI.
+ *
+ * The Windows secondary device receives this same row
+ * change through Supabase realtime and therefore stops
+ * enforcement as well.
+ */
+async function cancelSafetyWindow(){
+    if(!currentBlock)
+        return;
+
+    const phase =
+        getBlockPhase(
+            currentBlock
+        );
+
+    if(phase !== "safety"){
+        throw new Error(
+            "The safety window is no longer active."
+        );
+    }
+
+    const settings =
+        currentBlock.settings ||
+        {};
+
+    const allowStop =
+        settings.allowStop !== undefined
+            ? settings.allowStop
+            : settings.AllowStop !== false;
+
+    if(allowStop === false){
+        throw new Error(
+            "This Focus Block does not allow stopping."
+        );
+    }
+
+    const button =
+        $("cancelWarning");
+
+    if(button){
+        button.disabled = true;
+        button.textContent =
+            "Cancelling...";
+    }
+
+    try{
+        const now =
+            new Date();
+
+        await updateBlock({
+            ends_at:
+                now.toISOString(),
+
+            extensions:{
+                ...(currentBlock.extensions || {}),
+
+                cancelledAtUtc:
+                    now.toISOString(),
+
+                cancelledDuringSafetyWindow:
+                    true
+            }
+        });
+
+        currentBlock = null;
+
+        renderBlock();
+
+        if($("syncText")){
+            $("syncText").textContent =
+                "Focus cancelled during the safety window.";
+        }
+    }
+    finally{
+        if(button){
+            button.disabled = false;
+            button.textContent =
+                "Cancel Focus";
+        }
+    }
+}
+
 async function stopFocus(){
     if(!currentBlock)
         return;
+
+    const phase =
+        getBlockPhase(
+            currentBlock
+        );
+
+    if(phase === "safety"){
+        await cancelSafetyWindow();
+        return;
+    }
+
+    if(phase !== "focus"){
+        throw new Error(
+            "Focus is not currently active."
+        );
+    }
 
     const settings =
         currentBlock.settings ||
@@ -1575,6 +1783,17 @@ async function stopFocus(){
 async function extendFocus(){
     if(!currentBlock)
         return;
+
+    const phase =
+        getBlockPhase(
+            currentBlock
+        );
+
+    if(phase !== "focus"){
+        throw new Error(
+            "Focus extensions are only available after focus starts."
+        );
+    }
 
     const settings =
         currentBlock.settings ||
@@ -1707,6 +1926,17 @@ async function extendFocus(){
 async function emergencyBreak(){
     if(!currentBlock)
         return;
+
+    const phase =
+        getBlockPhase(
+            currentBlock
+        );
+
+    if(phase !== "focus"){
+        throw new Error(
+            "Emergency breaks are only available after focus starts."
+        );
+    }
 
     const settings =
         currentBlock.settings ||
@@ -1937,10 +2167,6 @@ function handleNotifications(){
         settings.notifyOnEnd === true ||
         settings.NotifyOnEnd === true;
 
-    /*
-     * "Before start" refers to the actual focus start,
-     * not the beginning of the safety window.
-     */
     if(
         notifyBeforeStart &&
         beforeStart > 0 &&
@@ -1960,9 +2186,6 @@ function handleNotifications(){
         );
     }
 
-    /*
-     * The safety-window notification is separate.
-     */
     if(
         notifyOnStart &&
         now >= warningStart &&
@@ -2076,10 +2299,18 @@ async function subscribePrimaryRealtime(){
                                     payload.new
                                 );
 
-                            if(
-                                isInsideBlockWindow(
+                            const phase =
+                                getBlockPhase(
                                     block
-                                )
+                                );
+
+                            /*
+                             * Keep scheduled blocks too.
+                             */
+                            if(
+                                phase === "scheduled" ||
+                                phase === "safety" ||
+                                phase === "focus"
                             ){
                                 currentBlock =
                                     block;
@@ -2087,8 +2318,24 @@ async function subscribePrimaryRealtime(){
                                 renderBlock();
 
                                 if($("syncText")){
-                                    $("syncText").textContent =
-                                        "Focus Block synchronized.";
+                                    if(
+                                        phase ===
+                                        "safety"
+                                    ){
+                                        $("syncText").textContent =
+                                            "Safety window synchronized.";
+                                    }
+                                    else if(
+                                        phase ===
+                                        "focus"
+                                    ){
+                                        $("syncText").textContent =
+                                            "Focus Block synchronized.";
+                                    }
+                                    else{
+                                        $("syncText").textContent =
+                                            "Focus Block scheduled.";
+                                    }
                                 }
                             }
                             else if(
@@ -2181,12 +2428,6 @@ async function login(){
             );
         }
 
-        /*
-         * The browser/phone is PRIMARY.
-         *
-         * The Windows application is SECONDARY
-         * and registers itself independently.
-         */
         await registerPrimaryDevice();
 
         showApp();
@@ -2249,10 +2490,6 @@ async function restoreSession(){
             true
         );
 
-        /*
-         * Make sure this browser is still the
-         * registered PRIMARY device.
-         */
         try{
             await registerPrimaryDevice();
         }
@@ -2628,6 +2865,43 @@ $("stopFocus")?.addEventListener(
                 $("syncText").textContent =
                     error?.message ||
                     "Could not stop Focus.";
+            }
+        }
+    }
+);
+
+/*
+ * Safety-window cancellation button.
+ *
+ * This must be connected independently from Stop Focus
+ * because the warning phase has its own UI and its own
+ * explicit cancellation action.
+ */
+$("cancelWarning")?.addEventListener(
+    "click",
+    async () => {
+        try{
+            await cancelSafetyWindow();
+        }
+        catch(error){
+            console.error(
+                "Safety-window cancellation failed:",
+                error
+            );
+
+            if($("syncText")){
+                $("syncText").textContent =
+                    error?.message ||
+                    "Could not cancel Focus.";
+            }
+
+            const button =
+                $("cancelWarning");
+
+            if(button){
+                button.disabled = false;
+                button.textContent =
+                    "Cancel Focus";
             }
         }
     }
